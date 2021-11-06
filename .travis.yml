@@ -1,0 +1,28 @@
+# For more information about the configurations used
+# in this file, please see the Travis CI documentation.
+# .travis.yml
+# https://docs.travis-ci.com
+sudo: required
+language: bash
+
+env:
+  matrix:
+  - OS_TYPE=fedora OS_VERSION=35
+
+services:
+  - docker
+
+before_install:
+  - sudo apt-get update -q
+  - echo 'DOCKER_OPTS="-H tcp://127.0.0.1:2375 -H unix:///var/run/docker.sock -s devicemapper"' | sudo tee /etc/default/docker > /dev/null
+  - sudo service docker restart; sleep 5
+  - sudo docker run --privileged -it -v /sys/fs/cgroup:/sys/fs/cgroup -d --name=fedora -e TZ=America/New_York -e PATH=$PATH --restart always --entrypoint /sbin/init fedora:7
+
+script:
+  - sudo docker exec -it fedora bash -c "yum install -q -yy @base; yum update -q -yy; yum install -q -yy curl git net-tools"
+  - sudo docker exec -it fedora bash -c "$(bash -c $(curl -LSs https://github.com/pkmgr/fedora/raw/main/scripts/default.sh))"
+
+notifications:
+  email:
+    on_failure: never
+    on_success: never
