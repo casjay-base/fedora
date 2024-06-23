@@ -15,8 +15,9 @@ This site doesn't seem to exist<br>
 <div class="c5">
 <br>
 <?php
-echo 'Server Name: ' . $_SERVER['SERVER_NAME'] . '<BR>';
-echo 'IP Address: ' . $_SERVER['SERVER_ADDR'] . '<BR>';
+echo "System Hostname: " , gethostname() . "<br />";
+echo 'Server Name: ' . $_SERVER['SERVER_NAME'] . '<br />';
+echo 'IP Address: ' . $_SERVER['SERVER_ADDR'] . '<br />';
 ?>
 <br><br>
 Linux OsVer: <?php echo shell_exec('cat /etc/redhat-release'); ?><br>
