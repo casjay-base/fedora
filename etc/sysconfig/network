@@ -1,6 +1,7 @@
 NETWORKING="yes"
-GATEWAYDEV="eth0"
 NETWORKING_IPV6="yes"
-IPV6_DEFAULTDEV="eth0"
-HOSTNAME="myserverdomainname"
 DOMAINNAME="mydomain"
+HOSTNAME="myserverdomainname"
+IPV6_AUTOCONF=yes
+#IPV6_DEFAULTDEV="mynetworkdevice"
+#GATEWAYDEV="mynetworkdevice"

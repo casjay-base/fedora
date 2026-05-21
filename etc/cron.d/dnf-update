@@ -1,0 +1,2 @@
+# run dnf update - runs daily at 2 am
+0 2 * * * root ping -c 1 google.com >/dev/null 2>&1 && dnf update -y -q >/dev/null 2>&1

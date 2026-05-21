@@ -1,45 +1,106 @@
-## Configuration file for a typical Tor user
-ControlSocket /run/tor/control
+# =========================================================
+#  🕳️ Tor Exit Node Configuration – Limited, Hardened, Accounted
+#  📅 Monthly 1000GB, 🌐 Safe Ports Only, 🛡️ Abuse-Minimized
+# =========================================================
+
+# =========================================================
+# 🔧 Basic Setup
+# =========================================================
+RunAsDaemon                 1
+DataDirectory               /var/lib/tor
+
+# =========================================================
+# 🔐 Control Port
+# =========================================================
+ControlPort                 9051
+ControlSocket               /run/tor/control.sock
+CookieAuthFile              /run/tor/control.authcookie
 ControlSocketsGroupWritable 1
-CookieAuthentication 1
-CookieAuthFile /run/tor/control.authcookie
+CookieAuthentication        1
 CookieAuthFileGroupReadable 1
-SOCKSPort 9050 # Default: Bind to localhost:9050 for local connections.
-Log notice file /var/log/tor/notices.log
-Log debug file /var/log/tor/debug.log
-RunAsDaemon 1
-DataDirectory /var/lib/tor
-ControlPort 9051
-HashedControlPassword 16:872860B76453A77D60CA2BB8C1A7042072093276A3D701AD684053EC4C
 
-############### This section is just for location-hidden services ###
-HiddenServiceDir /var/lib/tor/hidden_service
-HiddenServicePort 443 myserverdomainname:443
-HiddenServicePort 80 myserverdomainname:80
-HiddenServicePort 22 myserverdomainname:22
+# =========================================================
+# 🌐 SOCKS/DNS/HTTP Tunnel (optional public proxy use)
+# =========================================================
+SOCKSPort                   0.0.0.0:9050 IsolateDestAddr IsolateDestPort
+SOCKSPort                   [::]:9050    IsolateDestAddr IsolateDestPort
+HTTPTunnelPort              0.0.0.0:9080
+HTTPTunnelPort              [::]:9080
+DNSPort                     0.0.0.0:9053
+DNSPort                     [::]:9053
+AutomapHostsOnResolve       1
+AutomapHostsSuffixes        .exit,.onion
 
-################ This section is just for relays #####################
-#ORPort 9001
-#ORPort 443 NoListen
-#ORPort 127.0.0.1:9090 NoAdvertise
-#Address noname.example.com
-# OutboundBindAddress 10.0.0.5
-#Nickname ididnteditheconfig
-#RelayBandwidthRate 100 KBytes  # Throttle traffic to 100KB/s (800Kbps)
-#RelayBandwidthBurst 200 KBytes # But allow bursts up to 200KB (1600Kb)
-#AccountingMax 40 GBytes
-#AccountingStart day 00:00
-#AccountingStart month 3 15:00
-#ContactInfo Random Person <nobody AT example dot com>
-#DirPort 9030 # what port to advertise for directory connections
-#DirPort 80 NoListen
-#DirPort 127.0.0.1:9091 NoAdvertise
-#DirPortFrontPage /etc/tor/tor-exit-notice.html
-#MyFamily $keyid,$keyid,...
-#ExitPolicy accept *:6660-6667,reject *:* # allow irc ports on IPv4 and IPv6 but no more
-#ExitPolicy accept *:119 # accept nntp ports on IPv4 and IPv6 as well as default exit policy
-#ExitPolicy accept *4:119 # accept nntp ports on IPv4 only as well as default exit policy
-#ExitPolicy accept6 *6:119 # accept nntp ports on IPv6 only as well as default exit policy
-#ExitPolicy reject *:* # no exits allowed
-#BridgeRelay 1
-#PublishServerDescriptor 0
+# =========================================================
+# 💸 Monthly Bandwidth Limits
+# =========================================================
+AccountingStart             month 1 00:00
+AccountingMax               1000 GBytes
+RelayBandwidthRate          10000 KBytes
+RelayBandwidthBurst         20000 KBytes
+
+# =========================================================
+# 📡 Relay Identification
+# =========================================================
+Nickname                    CasjayExit_myserverdomainname
+ContactInfo                 abuse@myserverdomainname
+ORPort                      9001
+ORPort                      [::]:9001
+
+# =========================================================
+# ✅ Exit Policy – Safe, Limited, Abuse-Minimized
+# =========================================================
+ExitRelay                   1
+ExitPolicy accept *:80        # HTTP
+ExitPolicy accept *:443       # HTTPS
+ExitPolicy accept *:22        # SSH (optional)
+ExitPolicy accept *:587       # SMTP Auth (submission only)
+ExitPolicy accept *:993       # IMAPS
+ExitPolicy accept *:995       # POP3S
+
+# 🚫 Deny all others to prevent spam, scans, DDoS vectors
+ExitPolicy reject *:1-21
+ExitPolicy reject *:23-25
+ExitPolicy reject *:26-52
+ExitPolicy reject *:53
+ExitPolicy reject *:54-79
+ExitPolicy reject *:110
+ExitPolicy reject *:111
+ExitPolicy reject *:113
+ExitPolicy reject *:135-139
+ExitPolicy reject *:143
+ExitPolicy reject *:161-162
+ExitPolicy reject *:179
+ExitPolicy reject *:389
+ExitPolicy reject *:445
+ExitPolicy reject *:465
+ExitPolicy reject *:512-514
+ExitPolicy reject *:520
+ExitPolicy reject *:563
+ExitPolicy reject *:6660-6669
+ExitPolicy reject *:6697
+ExitPolicy reject *:1350-2000
+ExitPolicy reject *:3128
+ExitPolicy reject *:3389
+ExitPolicy reject *:5900-5910
+ExitPolicy reject *:6566
+ExitPolicy reject *:6666-7000
+ExitPolicy reject *:8080
+ExitPolicy reject *:8888
+ExitPolicy reject *:9100
+ExitPolicy reject *:10000
+ExitPolicy reject *:32768-65535
+ExitPolicy reject *:*
+
+# =========================================================
+# 🧾 Logging
+# =========================================================
+Log                         notice file /var/log/tor/tor.log
+
+# =========================================================
+# 🏃 Performance
+# =========================================================
+AvoidDiskWrites             1
+DisableAllSwap              1
+HardwareAccel               1
+NumCPUs                     2

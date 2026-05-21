@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Plugin to monitor yum update activity
+# Plugin to monitor dnf update activity
 #
 # Parameters:
 #
@@ -10,10 +10,10 @@
 
 
 if [ "$1" = "autoconf" ]; then
-	if [ -r /var/log/yum.log ]; then
+	if [ -r /var/log/dnf.log ]; then
 		echo yes
 	else
-		echo "no (/var/log/yum.log not readable)"
+		echo "no (/var/log/dnf.log not readable)"
 	fi
 	exit 0
 fi
@@ -34,10 +34,10 @@ if [ "$1" = "config" ]; then
 fi
 
 echo -n "updates.value "
-grep "`date "+%b %d"`" /var/log/yum.log | grep -ci Updated
+grep "`date "+%b %d"`" /var/log/dnf.log | grep -ci Updated
 
 echo -n "installed.value "
-grep "`date "+%b %d"`" /var/log/yum.log | grep -ci Installed
+grep "`date "+%b %d"`" /var/log/dnf.log | grep -ci Installed
 
 echo -n "erased.value "
-grep "`date "+%b %d"`" /var/log/yum.log | grep -ci Erased
+grep "`date "+%b %d"`" /var/log/dnf.log | grep -ci Erased

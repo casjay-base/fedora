@@ -100,7 +100,7 @@ env.ssl yes
 env.url   https://localhost/server-status?auto
 env.ports 8443
 
-[yum*]
+[dnf*]
 user root
 
 [temperature*]
