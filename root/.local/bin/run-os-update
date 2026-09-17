@@ -40,7 +40,7 @@ if ! type -p execute &>/dev/null; then execute() { echo "$2" && eval "$1" || ret
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __repo_file() {
   local statusCode=0
-  bash -c "$(curl -q -LSsf "https://github.com/casjay-base/rhel/raw/main/root/.local/bin/fetch-repo-file" || return 10)"
+  bash -c "$(curl -q -LSsf "https://github.com/casjay-base/rhel/raw/main/root/.local/bin/fetch-repo-file" || return 1)"
   statusCode=$?
   [ "$statusCode" -eq 0 ] && printf '%b\n' "${YELLOW}Done updating repos${NC}"
   return $statusCode
@@ -58,7 +58,7 @@ __run_updater() {
 __kernel_ml() {
   local exitC=0
   local kernel_installed="$(rpm -qa kernel-ml 2>/dev/null | tail -n1)"
-  local kernel_avail="$(dnf search kernel-ml 2>&1 | awk '{print $1}' | grep '^kernel-ml-.*[.]' | grep -Ev 'devel|headers' || return)"
+  local kernel_avail="$(dnf search kernel-ml 2>&1 | awk '{print $1}' | grep -- '^kernel-ml-.*[.]' | grep -Ev -- 'devel|headers' || return 1)"
   # EL7 ships monolithic kernel-ml; EL8/9 split into kernel-ml + kernel-ml-core + kernel-ml-modules*. --skip-broken handles both.
   local kml_pkgs="kernel-ml kernel-ml-core kernel-ml-modules kernel-ml-modules-extra"
   if [ -n "$kernel_installed" ]; then
@@ -69,7 +69,7 @@ __kernel_ml() {
   elif [ -n "$kernel_avail" ]; then
     echo "Switching to the newest kernel from elrepo - This may take a few minutes"
     # Only remove base kernel boot/module packages. Keep kernel-tools, kernel-headers, kernel-devel etc.
-    pkgs="$(rpm -qa kernel kernel-core kernel-modules kernel-modules-core kernel-modules-extra 2>/dev/null)"
+    local pkgs="$(rpm -qa kernel kernel-core kernel-modules kernel-modules-core kernel-modules-extra 2>/dev/null)"
     [ -n "$pkgs" ] && for pkg in $pkgs; do rpm -ev --nodeps $pkg >/dev/null 2>&1; done
     devnull dnf update -yyq --exclude 'kernel' --exclude 'kernel-core' --exclude 'kernel-modules*' >/dev/null
     devnull dnf install -yyq --skip-broken $kml_pkgs >/dev/null || exitC=1
@@ -85,7 +85,7 @@ __kernel_ml() {
 __kernel_lt() {
   local exitC=0
   local kernel_installed="$(rpm -qa kernel-lt 2>/dev/null | tail -n1)"
-  local kernel_avail="$(dnf search kernel-lt 2>&1 | awk '{print $1}' | grep '^kernel-lt-.*[.]' | grep -Ev 'devel|headers' || return)"
+  local kernel_avail="$(dnf search kernel-lt 2>&1 | awk '{print $1}' | grep -- '^kernel-lt-.*[.]' | grep -Ev -- 'devel|headers' || return 1)"
   # EL7 ships monolithic kernel-lt; EL8/9 split into kernel-lt + kernel-lt-core + kernel-lt-modules*. --skip-broken handles both.
   local klt_pkgs="kernel-lt kernel-lt-core kernel-lt-modules kernel-lt-modules-extra"
   if [ -n "$kernel_installed" ]; then
@@ -96,7 +96,7 @@ __kernel_lt() {
   elif [ -n "$kernel_avail" ]; then
     echo "Switching to the newest kernel from elrepo - This may take a few minutes"
     # Only remove base kernel boot/module packages. Keep kernel-tools, kernel-headers, kernel-devel etc.
-    pkgs="$(rpm -qa kernel kernel-core kernel-modules kernel-modules-core kernel-modules-extra 2>/dev/null)"
+    local pkgs="$(rpm -qa kernel kernel-core kernel-modules kernel-modules-core kernel-modules-extra 2>/dev/null)"
     [ -n "$pkgs" ] && for pkg in $pkgs; do rpm -ev --nodeps $pkg >/dev/null 2>&1; done
     devnull dnf update -yyq --exclude 'kernel' --exclude 'kernel-core' --exclude 'kernel-modules*' >/dev/null
     devnull dnf install -yyq --skip-broken $klt_pkgs >/dev/null || exitC=1
@@ -112,20 +112,20 @@ __kernel_lt() {
 run_grub() {
   echo "Initializing grub configuration"
   local cfg="" efi="" grub_cfg="" grub_efi="" grub_bin="" grub_bin_name=""
-  grub_cfg="$(find /boot/grub*/* -name 'grub*.cfg' | grep '^' || false)"
-  grub_efi="$(find /boot/efi/EFI/* -name 'grub*.cfg' | grep '^' || false)"
+  grub_cfg="$(find /boot/grub*/* -name 'grub*.cfg' | grep -- '^' || false)"
+  grub_efi="$(find /boot/efi/EFI/* -name 'grub*.cfg' | grep -- '^' || false)"
   grub_bin="$(builtin type -P grub-mkconfig 2>/dev/null || builtin type -P grub2-mkconfig 2>/dev/null || false)"
-  grub_bin_name="$(basename "$grub_bin" 2>/dev/null)"
+  grub_bin_name="${grub_bin##*/}"
   if [ -n "$grub_bin" ]; then
     for opt in 'biosdevname=0' 'net.ifnames=0'; do
-      if ! grep -shq "$opt" '/etc/default/grub'; then
+      if ! grep -shq -- "$opt" '/etc/default/grub'; then
         sed -i '/^GRUB_CMDLINE_LINUX=/ s/"$/ '$opt'"/' /etc/default/grub >/dev/null
       fi
     done
-    if ! stat -fc %T '/sys/fs/cgroup' | grep -q 'cgroup2fs' || ! grep -shq 'systemd.unified_cgroup_hierarchy=1' /etc/default/grub; then
+    if ! stat -fc %T '/sys/fs/cgroup' | grep -q -- 'cgroup2fs' || ! grep -shq -- 'systemd.unified_cgroup_hierarchy=1' /etc/default/grub; then
       sed -i '/^GRUB_CMDLINE_LINUX=/ s/"$/ systemd.unified_cgroup_hierarchy=1"/' /etc/default/grub >/dev/null
     fi
-    if grep -sq 'GRUB_ENABLE_BLSCFG' "/etc/default/grub"; then
+    if grep -sq -- 'GRUB_ENABLE_BLSCFG' "/etc/default/grub"; then
       sed -i 's|GRUB_ENABLE_BLSCFG=.*|GRUB_ENABLE_BLSCFG=false|g' '/etc/default/grub' >/dev/null
     fi
     rm_if_exists /boot/*rescue* >/dev/null
@@ -156,18 +156,18 @@ rm_if_exists() {
   done
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-__systemctl_restart() { systemctl is-active "$1" >/dev/null 2>&1 && systemctl restart "$1" >/dev/null 2>&1 || return 5; }
+__systemctl_restart() { systemctl is-active "$1" >/dev/null 2>&1 && systemctl restart "$1" >/dev/null 2>&1 || return 1; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __get_www_user() {
   local user=""
-  user="$(grep -sh "www-data" "/etc/passwd" || grep -sh "apache" "/etc/passwd" || grep -sh "nginx" "/etc/passwd")"
-  [ -n "$user" ] && echo "$user" | awk -F ':' '{print $1}' || return 9
+  user="$(grep -sh -- "www-data" "/etc/passwd" || grep -sh -- "apache" "/etc/passwd" || grep -sh -- "nginx" "/etc/passwd")"
+  [ -n "$user" ] && echo "$user" | awk -F ':' '{print $1}' || return 1
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __get_www_group() {
   local group=""
-  group="$(grep -sh "www-data" "/etc/group" || grep -sh "apache" "/etc/group" || grep -sh "nginx" "/etc/group")"
-  [ -n "$group" ] && echo "$group" | awk -F ':' '{print $1}' || return 9
+  group="$(grep -sh -- "www-data" "/etc/group" || grep -sh -- "apache" "/etc/group" || grep -sh -- "nginx" "/etc/group")"
+  [ -n "$group" ] && echo "$group" | awk -F ':' '{print $1}' || return 1
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __show_help() {
@@ -187,19 +187,33 @@ EOF
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 [ "$USER" = "root" ] || [ "$EUID" = 0 ] || exit 1
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-echo "$PATH" | grep -q "/root/.local/bin" || export PATH="/root/.local/bin:$PATH"
+echo "$PATH" | grep -q -- "/root/.local/bin" || export PATH="/root/.local/bin:$PATH"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-NC="$(tput sgr0 2>/dev/null)"
-BLACK="\033[0;30m"    # Black
-RED="\033[0;31m"      # Red
-GREEN="\033[0;32m"    # Green
-YELLOW="\033[0;33m"   # Yellow
-BLUE="\033[0;34m"     # Blue
-PURPLE="\033[0;35m"   # Purple
-CYAN="\033[0;36m"     # Cyan
-WHITE="\033[0;37m"    # White
-ORANGE="\033[0;33m"   # Orange
-LIGHTRED='\033[1;31m' # Light Red
+if [ -n "${NO_COLOR+x}" ]; then
+  NC="" BLACK="" RED="" GREEN="" YELLOW="" BLUE="" PURPLE="" CYAN="" WHITE="" ORANGE="" LIGHTRED=""
+else
+  NC="$(tput sgr0 2>/dev/null)"
+  # Black
+  BLACK="\033[0;30m"
+  # Red
+  RED="\033[0;31m"
+  # Green
+  GREEN="\033[0;32m"
+  # Yellow
+  YELLOW="\033[0;33m"
+  # Blue
+  BLUE="\033[0;34m"
+  # Purple
+  PURPLE="\033[0;35m"
+  # Cyan
+  CYAN="\033[0;36m"
+  # White
+  WHITE="\033[0;37m"
+  # Orange
+  ORANGE="\033[0;33m"
+  # Light Red
+  LIGHTRED='\033[1;31m'
+fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 DATE="$(date +'%y-%m-%d at %H:%M')"
 LOG_FILE="${TMPDIR:-/tmp}/$APPNAME.log"
@@ -221,22 +235,22 @@ export REMOTE_VERSION="$(curl -q -LSsf "https://github.com/casjay-base/rhel/raw/
 [ -f "/etc/casjaysdev/updates/versions/configs.txt" ] && export INSTALLED_VERSION="$(head -n1 <"/etc/casjaysdev/updates/versions/configs.txt" 2>/dev/null)"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 [ -f "/etc/casjaysdev/updates/versions/os_version.txt" ] && RELEASE_VER="$(<"/etc/casjaysdev/updates/versions/os_version.txt")"
-export RELEASE_VER="${RELEASE_VER:-$(grep --no-filename -s 'VERSION_ID=' /etc/*-release | awk -F '=' '{print $2}' | sed 's#"##g' | awk -F '.' '{print $1}' | grep '^')}"
-export RELEASE_NAME="$(grep --no-filename -s '^NAME=' /etc/*-release | awk -F'=' '{print $2}' | sed 's|"||g;s| .*||g' | tr '[:upper:]' '[:lower:]' | grep '^')"
-export RELEASE_TYPE="$(grep --no-filename -s '^ID_LIKE=' /etc/*-release | awk -F'=' '{print $2}' | sed 's|"||g' | tr '[:upper:]' '[:lower:]' | tr ' ' '\n' | grep 'centos' | grep '^')"
+export RELEASE_VER="${RELEASE_VER:-$(grep --no-filename -s -- 'VERSION_ID=' /etc/*-release | awk -F '=' '{print $2}' | sed 's#"##g' | awk -F '.' '{print $1}' | grep -- '^')}"
+export RELEASE_NAME="$(grep --no-filename -s -- '^NAME=' /etc/*-release | awk -F'=' '{print $2}' | sed 's|"||g;s| .*||g' | tr '[:upper:]' '[:lower:]' | grep -- '^')"
+export RELEASE_TYPE="$(grep --no-filename -s -- '^ID_LIKE=' /etc/*-release | awk -F'=' '{print $2}' | sed 's|"||g' | tr '[:upper:]' '[:lower:]' | tr ' ' '\n' | grep -- 'centos' | grep -- '^')"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 GET_WEB_USER="$(__get_www_user)"
 GET_WEB_GROUP="$(__get_www_group)"
 INTERNAL_DOMAIN="${INTERNAL_DOMAIN_NAME:-internal}"
-HOSTNAME_FULL="$(hostname -f 2>/dev/null | grep '^' || echo "$HOSTNAME")"
-HOSTNAME_SHORT="$(hostname -s 2>/dev/null | grep '^' || echo "$HOSTNAME")"
-MYSERVER_HOST_NAME="$(hostname -f 2>/dev/null | grep '^' || hostname -s 2>/dev/null | grep '^' || echo "$HOSTNAME")"
-MYSERVER_DOMAIN_NAME="$(hostname -d | grep '^' || echo "$HOSTNAME_FULL" | awk -F'.' '{$1="";OFS="."; print $0}' | grep -v '^$' | sed 's|^\.||g;s|^ /*||g;s| |.|g' | grep '^' || echo "$INTERNAL_DOMAIN")"
+HOSTNAME_FULL="$(hostname -f 2>/dev/null | grep -- '^' || echo "$HOSTNAME")"
+HOSTNAME_SHORT="$(hostname -s 2>/dev/null | grep -- '^' || echo "$HOSTNAME")"
+MYSERVER_HOST_NAME="$(hostname -f 2>/dev/null | grep -- '^' || hostname -s 2>/dev/null | grep -- '^' || echo "$HOSTNAME")"
+MYSERVER_DOMAIN_NAME="$(hostname -d | grep -- '^' || echo "$HOSTNAME_FULL" | awk -F'.' '{$1="";OFS="."; print $0}' | grep -v -- '^$' | sed 's|^\.||g;s|^ /*||g;s| |.|g' | grep -- '^' || echo "$INTERNAL_DOMAIN")"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 [ "$ARCH" = "x86_64" ] || dnf_opts="--disablerepo casjay-remi-php,casjay-remi-safe"
 # If kernel-ml or kernel-lt is installed, exclude only the base kernel boot/module packages from updates
 # so they don't get pulled back in. kernel-tools, kernel-headers, kernel-devel, etc. are kept and updated normally.
-if rpm -qa 2>/dev/null | grep -qE '^kernel-(ml|lt)-'; then
+if rpm -qa 2>/dev/null | grep -qE -- '^kernel-(ml|lt)-'; then
   for k in kernel kernel-core kernel-modules kernel-modules-core kernel-modules-extra kernel-abi-stablelists; do
     dnf_opts="${dnf_opts} --exclude=$k"
   done
@@ -302,11 +316,17 @@ if [ ! -f "/tmp/run-os-update" ] && ping -c 2 1.1.1.1 &>/dev/null; then
   fi
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-MYSERVER_NET_DEVICE="$(ip route | grep default | sed -e "s/^.*dev.//" -e "s/.proto.*//")"
-[ -n "$MYSERVER_NET_DEVICE" ] && [ -n "$(builtin type -P ifconfig)" ] && MYSERVER_ADDRESS_IPV6="$(ifconfig $MYSERVER_NET_DEVICE | grep -E 'venet|inet' | grep -v 'docker' | grep inet6 | grep -i 'global' | awk '{print $2}' | head -n1 | grep '^')" || MYSERVER_ADDRESS_IPV6=""
-[ -n "$MYSERVER_NET_DEVICE" ] && [ -n "$(builtin type -P ifconfig)" ] && MYSERVER_ADDRESS_IPV4="$(ifconfig $MYSERVER_NET_DEVICE | grep -E 'venet|inet' | grep -v '127.0.0.' | grep inet | grep -v 'inet6' | awk '{print $2}' | sed 's#addr:##g' | head -n1 | grep '^')" || MYSERVER_ADDRESS_IPV4=""
-[ -n "$MYSERVER_ADDRESS_IPV6" ] || MYSERVER_ADDRESS_IPV6="$(hostname -I | tr ' ' '\n' | grep -Ev '^::1|^$' | grep ':.*:' | head -n1 | grep '^' || echo '::1')"
-[ -n "$MYSERVER_ADDRESS_IPV4" ] || MYSERVER_ADDRESS_IPV4="$(hostname -I | tr ' ' '\n' | grep -vE '|127\.0\.0|172\.17\.0|:.*:|^$' | head -n1 | grep '[0-9]\.[0-9]' || echo '127.0.0.1')"
+MYSERVER_NET_DEVICE="$(ip route | grep -- default | sed -e "s/^.*dev.//" -e "s/.proto.*//")"
+[ -n "$MYSERVER_NET_DEVICE" ] && [ -n "$(builtin type -P ifconfig)" ] &&
+  MYSERVER_ADDRESS_IPV6="$(ifconfig $MYSERVER_NET_DEVICE | grep -E -- 'venet|inet' | grep -v -- 'docker' |
+    grep -- inet6 | grep -i -- 'global' | awk '{print $2}' | head -n1 | grep -- '^')" || MYSERVER_ADDRESS_IPV6=""
+[ -n "$MYSERVER_NET_DEVICE" ] && [ -n "$(builtin type -P ifconfig)" ] &&
+  MYSERVER_ADDRESS_IPV4="$(ifconfig $MYSERVER_NET_DEVICE | grep -E -- 'venet|inet' | grep -v -- '127.0.0.' |
+    grep -- inet | grep -v -- 'inet6' | awk '{print $2}' | sed 's#addr:##g' | head -n1 | grep -- '^')" || MYSERVER_ADDRESS_IPV4=""
+[ -n "$MYSERVER_ADDRESS_IPV6" ] || MYSERVER_ADDRESS_IPV6="$(hostname -I | tr ' ' '\n' | grep -Ev -- '^::1|^$' |
+  grep -- ':.*:' | head -n1 | grep -- '^' || echo '::1')"
+[ -n "$MYSERVER_ADDRESS_IPV4" ] || MYSERVER_ADDRESS_IPV4="$(hostname -I | tr ' ' '\n' | grep -vE -- '|127\.0\.0|172\.17\.0|:.*:|^$' |
+  head -n1 | grep -- '[0-9]\.[0-9]' || echo '127.0.0.1')"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 chattr -i /etc/hosts &>/dev/null
 chattr -i /etc/resolv.conf &>/dev/null
@@ -328,7 +348,7 @@ if [ "$SCRIPTS_UPDATE" = "true" ]; then
     echo "Updating scripts to version $REMOTE_VERSION from $INSTALLED_VERSION"
   fi
   for file in $file_list; do
-    filename="$(basename "$file")"
+    filename="${file##*/}"
     echo "Updating $filename in /root/.local/bin"
     __run_updater "$RAW_REPO_URL" "$filename" || exitCode=$(($exitCode + 1))
   done
@@ -371,7 +391,7 @@ if [ -z "$FORCE_INST" ] && [ "$REMOTE_VERSION" = "$INSTALLED_VERSION" ]; then
   echo -e "Fixing web servers"
   curl -q -LSsf "https://github.com/casjay-base/rhel/raw/refs/heads/main/etc/nginx/nginx.conf" -o "/etc/nginx/nginx.conf"
   if [ -f "/etc/httpd/conf/httpd.conf" ]; then
-    if ! grep -qi 'ServerTokens Prod$' "/etc/httpd/conf/httpd.conf"; then
+    if ! grep -qi -- 'ServerTokens Prod$' "/etc/httpd/conf/httpd.conf"; then
       sed -i 's|ServerTokens .*|ServerTokens Prod|g' /etc/httpd/conf/httpd.conf
     fi
   fi
@@ -514,7 +534,7 @@ else
   echo -e "\nCopying the files from config dir to system dir"
   for sys_dir in root etc usr var; do
     for new_conf in "$APP_TMP_DIR/$sys_dir"/*; do
-      etc_dir="/$sys_dir/$(basename -- "$new_conf")"
+      etc_dir="/$sys_dir/${new_conf##*/}"
       if [ -d "$new_conf" ]; then
         echo -e "$new_conf/. >$etc_dir/"
         cp -Rfa "$new_conf/." "$etc_dir/" 2>/dev/null
@@ -537,7 +557,7 @@ else
     cp -Rf "$APP_TMP_DIR/etc/httpd/conf/httpd.conf" "/etc/httpd/conf/httpd.conf"
   fi
 
-  if grep -qs "^named:" "/etc/passwd"; then
+  if grep -qs -- "^named:" "/etc/passwd"; then
     mkdir -p /var/named /var/log/named && chown -Rf named:named /etc/named* /var/named /var/log/named
   fi
 
@@ -546,7 +566,7 @@ else
     sed -i "s#myserverdomainname#$HOSTNAME#g" /etc/sysconfig/network
   fi
 
-  if grep -qs '^kernel.domainname' '/etc/sysctl.conf'; then
+  if grep -qs -- '^kernel.domainname' '/etc/sysctl.conf'; then
     sed -i 's|kernel.domainname=.*|kernel.domainname='$MYSERVER_DOMAIN_NAME'|g' /etc/sysctl.conf
   else
     echo -e "kernel.domainname=$MYSERVER_DOMAIN_NAME" >>/etc/sysctl.conf
@@ -595,15 +615,15 @@ else
   if [ -n "$GET_WEB_USER" ]; then
     if [ -f "/etc/nginx/nginx.conf" ]; then
       sed -i '0,/^user .*/s//user  '$GET_WEB_USER';/' "/etc/nginx/nginx.conf"
-      grep -sqh "^user  $GET_WEB_USER" "/etc/nginx/nginx.conf" || echo "Failed to change the user in /etc/nginx/nginx.conf"
+      grep -sqh -- "^user  $GET_WEB_USER" "/etc/nginx/nginx.conf" || echo "Failed to change the user in /etc/nginx/nginx.conf"
     fi
     if [ -f "/etc/php-fpm.d/www.conf" ]; then
       sed -i '0,/^user .*/s//user = '$GET_WEB_USER'/' "/etc/php-fpm.d/www.conf"
-      grep -sqh "^user = $GET_WEB_USER" "/etc/php-fpm.d/www.conf" || echo "Failed to change the user in /etc/php-fpm.d/www.conf"
+      grep -sqh -- "^user = $GET_WEB_USER" "/etc/php-fpm.d/www.conf" || echo "Failed to change the user in /etc/php-fpm.d/www.conf"
     fi
     if [ -f "/etc/httpd/conf/httpd.conf" ]; then
       sed -i '0,/^User .*/s//User '$GET_WEB_USER'/' "/etc/httpd/conf/httpd.conf"
-      grep -sqh "^User $GET_WEB_USER" "/etc/httpd/conf/httpd.conf" || echo "Failed to change the user in /etc/httpd/conf/httpd.conf"
+      grep -sqh -- "^User $GET_WEB_USER" "/etc/httpd/conf/httpd.conf" || echo "Failed to change the user in /etc/httpd/conf/httpd.conf"
     fi
     for apache_dir in "/usr/local/share/httpd" "/var/www"; do
       [ -d "$apache_dir" ] && chown -Rf $GET_WEB_USER "$apache_dir"
@@ -612,18 +632,18 @@ else
   if [ -n "$GET_WEB_GROUP" ]; then
     if [ -f "/etc/php-fpm.d/www.conf" ]; then
       sed -i '0,/^group .*/s//group = '$GET_WEB_GROUP'/' "/etc/php-fpm.d/www.conf"
-      grep -sqh "^group = $GET_WEB_GROUP" "/etc/php-fpm.d/www.conf" || echo "Failed to change the group in /etc/php-fpm.d/www.conf"
+      grep -sqh -- "^group = $GET_WEB_GROUP" "/etc/php-fpm.d/www.conf" || echo "Failed to change the group in /etc/php-fpm.d/www.conf"
     fi
     if [ -f "/etc/httpd/conf/httpd.conf" ]; then
       sed -i '0,/^Group .*/s//Group '$GET_WEB_GROUP'/' "/etc/httpd/conf/httpd.conf"
-      grep -sqh "^Group $GET_WEB_GROUP" "/etc/httpd/conf/httpd.conf" || echo "Failed to change the group in /etc/httpd/conf/httpd.conf"
+      grep -sqh -- "^Group $GET_WEB_GROUP" "/etc/httpd/conf/httpd.conf" || echo "Failed to change the group in /etc/httpd/conf/httpd.conf"
     fi
     for apache_dir in "/usr/local/share/httpd" "/var/www"; do
       [ -d "$apache_dir" ] && chgrp -Rf $GET_WEB_GROUP "$apache_dir"
     done
   fi
   if [ -f "/etc/httpd/conf/httpd.conf" ]; then
-    if ! grep -qi 'ServerTokens Prod$' /etc/httpd/conf/httpd.conf; then
+    if ! grep -qi -- 'ServerTokens Prod$' /etc/httpd/conf/httpd.conf; then
       sed -i 's|ServerTokens.*|ServerTokens Prod|g' "/etc/httpd/conf/httpd.conf"
     fi
   fi
@@ -636,7 +656,7 @@ else
   fi
 
   echo -e "Setting up the ssl certs"
-  LE_CERTS_EXIST="$(\find "/etc/letsencrypt/live"/* -maxdepth 0 -type 'd,l' 2>/dev/null | grep -v "README" | grep '^' || return)"
+  LE_CERTS_EXIST="$(\find "/etc/letsencrypt/live"/* -maxdepth 0 -type 'd,l' 2>/dev/null | grep -v -- "README" | grep -- '^' || return 1)"
   [ -f "/etc/named/certbot-update.conf" ] && chmod 600 /etc/named/certbot-update.conf
   if [ -n "$LE_CERTS_EXIST" ]; then
     if [ -d "/etc/letsencrypt/renewal-hooks/post" ]; then
@@ -744,10 +764,10 @@ EOF
   if [ ! -f "/var/log/munin/munin-node.log" ]; then
     touch "/var/log/munin/munin-node.log"
   fi
-  if grep -sq "munin" "/etc/passwd"; then
+  if grep -sq -- "munin" "/etc/passwd"; then
     chown -Rf "munin" /var/log/munin
   fi
-  if grep -sq "munin" "/etc/group"; then
+  if grep -sq -- "munin" "/etc/group"; then
     chgrp -Rf "munin" /var/log/munin
   fi
   chmod -Rf 666 /var/log/munin/*.log
