@@ -17,4 +17,5 @@
 # @@sudo/root        :  no
 # @@Template         :  bash/system
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+VERSION="202305090019-git"
 [ -z "$(builtin type -P changeip 2>/dev/null)" ] || changeip --raw
