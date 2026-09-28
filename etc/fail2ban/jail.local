@@ -26,6 +26,13 @@ findtime  = 3600
 maxretry = 5
 backend = auto
 usedns = warn
+# jail.conf's stock firewallcmd-ipset banaction blocks with REJECT, which
+# replies to the banned IP and confirms something is actually listening
+# there. DROP gives no reply at all, so a banned scanner sees the same
+# nothing a random unused IP would - override to DROP here so every jail
+# using the default %(banaction)s inherits it without repeating this in
+# each jail below.
+banaction = firewallcmd-ipset[blocktype=DROP]
 # Merged from the former etc/fail2ban/ips.txt (removed - fail2ban never
 # auto-loads a bare .txt file, so that file was dead configuration; folding
 # its ranges in here is what actually makes them take effect). Keeps
