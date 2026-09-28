@@ -189,13 +189,13 @@ __systemctl_restart() { systemctl is-active "$1" >/dev/null 2>&1 && systemctl re
 __get_www_user() {
   local user=""
   user="$(grep -sh -- "www-data" "/etc/passwd" || grep -sh -- "apache" "/etc/passwd" || grep -sh -- "nginx" "/etc/passwd")"
-  [ -n "$user" ] && echo "$user" | awk -F ':' '{print $1}' || return 1
+  [ -n "$user" ] && printf '%s\n' "${user%%:*}" || return 1
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __get_www_group() {
   local group=""
   group="$(grep -sh -- "www-data" "/etc/group" || grep -sh -- "apache" "/etc/group" || grep -sh -- "nginx" "/etc/group")"
-  [ -n "$group" ] && echo "$group" | awk -F ':' '{print $1}' || return 1
+  [ -n "$group" ] && printf '%s\n' "${group%%:*}" || return 1
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __show_help() {
